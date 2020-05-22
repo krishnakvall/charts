@@ -5,31 +5,9 @@ numbering uses [semantic versioning](http://semver.org).
 
 NOTE: The change log until version 1.5.7 is auto generated based on git commits. Those include a reference to the git commit to be able to get more details.
 
-## 1.21.3
+## 1.19.1
 
-Render `agent.envVars` in kubernetes pod template JCasC
-
-## 1.21.2
-
-Cleanup `agent.yamlTemplate` rendering in kubernetes pod template XML configuration
-
-## 1.21.1
-
-Render `agent.nodeSelector` in the kubernetes pod template JCasC
-
-## 1.21.0
-
-Add support for overriding Ingress paths via `master.ingress.paths`
-
-## 1.20.0
-
-  Add the following options for configuring the Kubernetes plugin.
-
- - master.slaveDefaultsProviderTemplate
- - master.slaveJenkinsUrl
- - master.slaveJenkinsTunnel
- - master.slaveConnectTimeout
- - master.slaveReadTimeout
+In the `jenkins.xml.podTemplate` helper function, allow templating of all string values under `agent.volumes` except `type` by rendering them with the `tpl` function
 
 ## 1.19.0
 
