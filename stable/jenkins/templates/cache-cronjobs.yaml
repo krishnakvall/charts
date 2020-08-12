@@ -1,72 +1,18 @@
-{{- $deDup :=  dict }}
-{{- /* deduplication logic to ensure one one cache PVC is created per unique componentName */}}
-{{- if .Values.agent.enabled }}
-  {{- if and .Values.agent.cache.enabled .Values.agent.cache.clear.enabled }}
-    {{- $_ := set $deDup (tpl (.Values.agent.cache.componentName | required "cache componentName is required") $) .Values.agent.cache }}
+{{- if and .Values.agent.enabled .Values.agent.cache.clear.enabled }}
+{{- include "jenkins.casc.agentCronJob" . }}
+{{- end }}
+{{- if .Values.additionalAgents }}
+  {{- /* save .Values.agent */}}
+  {{- $agent := .Values.agent }}
+  {{- range $name, $additionalAgent := .Values.additionalAgents }}
+    {{- /* merge original .Values.agent into additional agent to ensure it at least has the default values */}}
+    {{- $additionalAgent := merge $additionalAgent $agent }}
+    {{- /* set .Values.agent to $additionalAgent */}}
+    {{- $_ := set $.Values "agent" $additionalAgent }}
+{{- if and $.Values.agent.enabled $.Values.agent.cache.clear.enabled }}
+{{- include "jenkins.casc.agentCronJob" $ }}
+{{- end }}
   {{- end }}
-  {{- if .Values.additionalAgents }}
-    {{- $agent := .Values.agent }}
-    {{- range $name, $additionalAgent := .Values.additionalAgents }}
-      {{- /* merge original .Values.agent into additional agent to ensure it at least has the default values */}}
-      {{- $additionalAgent := merge $additionalAgent $agent }}
-      {{- if and $additionalAgent.cache.enabled $additionalAgent.cache.clear.enabled }}
-        {{- $_ := set $deDup (tpl ($additionalAgent.cache.componentName | required "cache componentName is required") $) $additionalAgent.cache }}
-      {{- end }}
-    {{- end }}
-  {{- end }}
-  {{- /* render unique list of cache PVCs */}}
-  {{- range $name, $agentcache := $deDup }}
----
-apiVersion: batch/v1beta1
-kind: CronJob
-metadata:
-  name: {{ tpl ($agentcache.clear.componentName | required "cache clear componentName is required") $ }}
-  labels:
-    "app.kubernetes.io/name": '{{ template "jenkins.name" $ }}'
-    "helm.sh/chart": "{{ $.Chart.Name }}-{{ $.Chart.Version }}"
-    "app.kubernetes.io/managed-by": "{{ $.Release.Service }}"
-    "app.kubernetes.io/instance": "{{ $.Release.Name }}"
-    "app.kubernetes.io/component": "{{ $.Values.master.componentName }}"
-spec:
-  concurrencyPolicy : "Forbid"
-  failedJobsHistoryLimit : 5
-  successfulJobsHistoryLimit: 5
-  schedule: "{{ $agentcache.clear.schedule }}"
-  jobTemplate:
-    spec:
-      backoffLimit: 6
-      template:
-        metadata:
-          labels:
-            "app.kubernetes.io/name": '{{ template "jenkins.name" $ }}'
-            "helm.sh/chart": "{{ $.Chart.Name }}-{{ $.Chart.Version }}"
-            "app.kubernetes.io/managed-by": "{{ $.Release.Service }}"
-            "app.kubernetes.io/instance": "{{ $.Release.Name }}"
-            "app.kubernetes.io/component": "{{ $.Values.master.componentName }}"
-        spec:
-          volumes:
-          - name: cache-volume
-            persistentVolumeClaim:
-              claimName: {{ tpl ($agentcache.componentName | required "cache componentName is required") $ }}
-          containers:
-          - name: {{ tpl ($agentcache.clear.componentName | required "cache clear componentName is required") $ }}
-            image: "docker-registry.default.svc:5000/{{ $agentcache.clear.image }}:{{ $agentcache.clear.tag }}"
-            volumeMounts:
-            - mountPath: {{ tpl ($agentcache.mountPath | required "cache mountPath is required") $ }}
-              name: cache-volume
-            resources:
-              limits:
-                cpu: 500m
-                memory: 512Mi
-              requests:
-                cpu: 500m
-                memory: 512Mi
-            command:
-            - /bin/sh
-            - -c
-            - |
-              cd {{ tpl ($agentcache.mountPath | required "cache mountPath is required") $ }}
-              {{- tpl $agentcache.clear.command $ | nindent 14 }}
-          restartPolicy: OnFailure
-  {{- end }}
-{{- end -}}
+  {{- /* restore .Values.agent */}}
+  {{- $_ := set .Values "agent" $agent }}
+{{- end }}
