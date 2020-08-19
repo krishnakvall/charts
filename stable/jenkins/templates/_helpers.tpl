@@ -251,6 +251,94 @@ Returns kubernetes pod template configuration as code
 {{- end -}}
 
 {{/*
+Returns kubernetes PVC template from agent persistence configuration
+*/}}
+{{- define "jenkins.casc.agentPVC" -}}
+{{- if .Values.agent.cache.persistence.enabled }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ tpl (.Values.agent.cache.persistence.componentName | required "cache persistence componentName is required") $ }}
+  annotations:
+    "helm.sh/resource-policy": delete
+  labels:
+    "app.kubernetes.io/name": '{{ template "jenkins.name" $ }}'
+    "helm.sh/chart": "{{ $.Chart.Name }}-{{ $.Chart.Version }}"
+    "app.kubernetes.io/managed-by": "{{ $.Release.Service }}"
+    "app.kubernetes.io/instance": "{{ $.Release.Name }}"
+    "app.kubernetes.io/component": "{{ $.Values.master.componentName }}"
+spec:
+  accessModes:
+    - "ReadWriteMany"
+  resources:
+    requests:
+      storage: {{ .Values.agent.cache.persistence.size | required "size is required" }}
+  storageClassName: {{ .Values.agent.cache.persistence.storageClass | default "" }}
+{{- end }}
+{{- end -}}
+
+{{/*
+Returns kubernetes CronJob template from agent persistence configuration
+*/}}
+{{- define "jenkins.casc.agentCronJob" -}}
+{{- if .Values.agent.cache.clear.enabled }}
+---
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: {{ tpl (.Values.agent.cache.clear.componentName | required "cache clear componentName is required") $ }}
+  labels:
+    "app.kubernetes.io/name": '{{ template "jenkins.name" $ }}'
+    "helm.sh/chart": "{{ $.Chart.Name }}-{{ $.Chart.Version }}"
+    "app.kubernetes.io/managed-by": "{{ $.Release.Service }}"
+    "app.kubernetes.io/instance": "{{ $.Release.Name }}"
+    "app.kubernetes.io/component": "{{ $.Values.master.componentName }}"
+spec:
+  concurrencyPolicy : "Forbid"
+  failedJobsHistoryLimit : 5
+  successfulJobsHistoryLimit: 5
+  schedule: "{{ .Values.agent.cache.clear.schedule }}"
+  jobTemplate:
+    spec:
+      backoffLimit: 6
+      template:
+        metadata:
+          labels:
+            "app.kubernetes.io/name": '{{ template "jenkins.name" $ }}'
+            "helm.sh/chart": "{{ $.Chart.Name }}-{{ $.Chart.Version }}"
+            "app.kubernetes.io/managed-by": "{{ $.Release.Service }}"
+            "app.kubernetes.io/instance": "{{ $.Release.Name }}"
+            "app.kubernetes.io/component": "{{ $.Values.master.componentName }}"
+        spec:
+          volumes:
+          - name: cache-volume
+            persistentVolumeClaim:
+              claimName: {{ tpl (.Values.agent.cache.clear.claimName | required "cache clear.claimName is required") $ }}
+          containers:
+          - name: {{ tpl (.Values.agent.cache.clear.componentName | required "cache clear componentName is required") $ }}
+            image: "docker-registry.default.svc:5000/{{ .Values.agent.cache.clear.image }}:{{ .Values.agent.cache.clear.tag }}"
+            volumeMounts:
+            - mountPath: {{ tpl (.Values.agent.cache.clear.mountPath | required "cache mountPath is required") $ }}
+              name: cache-volume
+            resources:
+              limits:
+                cpu: 500m
+                memory: 512Mi
+              requests:
+                cpu: 500m
+                memory: 512Mi
+            command:
+            - /bin/sh
+            - -c
+            - |
+              cd {{ tpl (.Values.agent.cache.clear.mountPath | required "cache mountPath is required") $ }}
+              {{- tpl .Values.agent.cache.clear.command $ | nindent 14 }}
+          restartPolicy: OnFailure
+{{- end }}
+{{- end -}}
+
+{{/*
 Returns kubernetes pod template xml configuration
 */}}
 {{- define "jenkins.xml.podTemplate" -}}

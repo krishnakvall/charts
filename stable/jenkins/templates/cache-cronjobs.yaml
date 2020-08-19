@@ -1,0 +1,18 @@
+{{- if and .Values.agent.enabled .Values.agent.cache.clear.enabled }}
+{{- include "jenkins.casc.agentCronJob" . }}
+{{- end }}
+{{- if .Values.additionalAgents }}
+  {{- /* save .Values.agent */}}
+  {{- $agent := .Values.agent }}
+  {{- range $name, $additionalAgent := .Values.additionalAgents }}
+    {{- /* merge original .Values.agent into additional agent to ensure it at least has the default values */}}
+    {{- $additionalAgent := merge $additionalAgent $agent }}
+    {{- /* set .Values.agent to $additionalAgent */}}
+    {{- $_ := set $.Values "agent" $additionalAgent }}
+{{- if and $.Values.agent.enabled $.Values.agent.cache.clear.enabled }}
+{{- include "jenkins.casc.agentCronJob" $ }}
+{{- end }}
+  {{- end }}
+  {{- /* restore .Values.agent */}}
+  {{- $_ := set .Values "agent" $agent }}
+{{- end }}

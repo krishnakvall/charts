@@ -5,6 +5,11 @@ numbering uses [semantic versioning](http://semver.org).
 
 NOTE: The change log until version 1.5.7 is auto generated based on git commits. Those include a reference to the git commit to be able to get more details.
 
+## 2.5.1 cache section under agent to define volumes for caching build artifacts
+
+Added the definitions under `agent` to define `cache.persistence` volumes.
+Volumes of type `PVC` are created by the chart and cleared on a schedule defined under the `cache.clear` section.
+
 ## 2.5.0
 
 Add an option to specify that Jenkins master should be initialized only once, during first install.
